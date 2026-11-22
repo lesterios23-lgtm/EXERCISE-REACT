@@ -6,15 +6,26 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\V1\ProductResource;
 use App\Models\Product1;
 use App\Traits\ApiResponses;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ProductController extends Controller
 {
     use ApiResponses;
 
-    public function index()
+    public function index(Request $request)
     {
-        $products = Product1::with('category')->paginate(10);
+        $filters = $request->validate([
+            'category_id' => ['nullable', 'integer', 'exists:category1s,id'],
+        ]);
+
+        $query = Product1::with('category')->latest();
+
+        if (isset($filters['category_id'])) {
+            $query->where('category_id', $filters['category_id']);
+        }
+
+        $products = $query->paginate(10)->appends($request->query());
         $productResource = ProductResource::collection($products)
             ->response()
             ->getData(true);
@@ -23,6 +34,59 @@ class ProductController extends Controller
             'Products retrieved successfully',
             $productResource
         );
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'price' => ['required', 'numeric', 'min:0'],
+            'category_id' => ['required', 'integer', 'exists:category1s,id'],
+        ]);
+
+        $product = new Product1;
+        $product->name = $validated['name'];
+        $product->description = $validated['description'] ?? null;
+        $product->price = $validated['price'];
+        $product->category_id = $validated['category_id'];
+        $product->save();
+        $product->load('category');
+
+        return $this->success(
+            'Product created successfully',
+            new ProductResource($product),
+            201
+        );
+    }
+
+    public function update(Request $request, Product1 $product)
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'price' => ['required', 'numeric', 'min:0'],
+            'category_id' => ['required', 'integer', 'exists:category1s,id'],
+        ]);
+
+        $product->name = $validated['name'];
+        $product->description = $validated['description'] ?? null;
+        $product->price = $validated['price'];
+        $product->category_id = $validated['category_id'];
+        $product->save();
+        $product->load('category');
+
+        return $this->ok(
+            'Product updated successfully',
+            new ProductResource($product)
+        );
+    }
+
+    public function destroy(Product1 $product)
+    {
+        $product->delete();
+
+        return $this->ok('Product deleted successfully');
     }
 
     public function show(Product1 $product)
@@ -39,13 +103,13 @@ class ProductController extends Controller
     {
         $nameAndPrice = Product1::select('name', 'price')->get();
         $productsWithCategory = Product1::with('category')->get();
-        $productsOrderedByPrice = Product1::select('id', 'name')
+        $productsOrderedByPrice = Product1::select('id', 'name', 'price')
             ->orderBy('price', 'asc')
             ->get();
-        $firstFiveProducts = Product1::limit(5)->get();
+        $firstFiveProducts = Product1::orderBy('id')->limit(5)->get();
         $priceGreaterThanOrEqual = Product1::where('price', '>=', 3)->get();
         $electronics = Product1::whereHas('category', function ($query) {
-            $query->where('name', 'Electronics');
+            $query->whereIn('name', ['Electrical', 'Electronics']);
         })->get();
 
         $totalPrice = Product1::sum('price');
@@ -96,7 +160,7 @@ class ProductController extends Controller
             '=',
             'category1s.id'
         )
-            ->whereIn('category1s.name', ['Electronics', 'Books'])
+            ->whereIn('category1s.name', ['Electrical', 'Hardware'])
             ->select('category1s.name', DB::raw('AVG(product1s.price) as avg_price'))
             ->groupBy('category1s.name')
             ->get();

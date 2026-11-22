@@ -18,8 +18,8 @@ return Application::configure(basePath: dirname(__DIR__))
         },
 
     )
-    ->withMiddleware(function (Middleware $middleware): void {
-        //
+    ->withMiddleware(function (Middleware $middleware) {
+          $middleware->statefulApi(); // Critical for Cookie-based Auth over APIs
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

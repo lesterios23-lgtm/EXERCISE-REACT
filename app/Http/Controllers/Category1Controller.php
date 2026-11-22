@@ -8,7 +8,7 @@ class Category1Controller extends Controller
 {
     public function index()
     {
-        $category1s = Category1::all();
+        $category1s = Category1::query()->orderBy('name')->get();
 
         return response()->json([
             'success' => true,

@@ -2,110 +2,46 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Product;
+use App\Http\Requests\StoreProductRequest;
+use App\Models\Product1;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 
 class ProductController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    public function index(Request $request): JsonResponse
     {
-        $products = Product::all();
+        $query = Product1::query();
 
-        $result = [];
-        $numbers = [];
-
-        for($i =1; $i <= 5; $i++)
-        {
-            $numbers[] = $i;
+        if ($request->has('search') && !empty($request->search)) {
+            $searchTerm = $request->search;
+            $query->where(function ($q) use ($searchTerm) {
+                $q->where('name', 'like', "%{$searchTerm}%")
+                    ->orWhere('manufacturer', 'like', "%{$searchTerm}%")
+                    ->orWhere('code', 'like', "%{$searchTerm}%")
+                    ->orWhere('description', 'like', "%{$searchTerm}%");
+            });
         }
 
-        foreach($products as $product)
-            {
-                $result[] = [
-                    'id'=>$product->id,
-                    'name'=>$this->formatProductName($product->name),
-                    'slug'=>$product->slug,
-                    'category'=>$product->category,
-                    'price'=>$product->price,
-                    'quantity'=>$product->quantity,
-                    'status'=>$product->status,
-                ];
-            }
-            
-            return response()->json([
-                'status'=>true,
-                'numbers'=>$numbers,
-                'message'=>'Products retrieved successfully.',
-                'data'=>$result
-            ], 200);
+        $products = $query->latest()->paginate(12);
+
+        return response()->json($products, 200);
     }
 
-    public function show(string$slug)
+    public function store(StoreProductRequest $request): JsonResponse
     {
-        $product=Product::where('slug', $slug)->first();
+        $validated = $request->validated();
 
-        if(!$product) 
-            {
-                return response()->json([
-                    'status'=>false,
-                    'message'=>'Product not found.'
-                ],404);
-            }
+        if ($request->hasFile('photo')) {
+            $path = $request->file('photo')->store('products', 'public');
+            $validated['photo'] = asset('storage/' . $path);
+        }
 
-            return response()->json([
-                'status'=>true,
-                'message'=>'Product retrieved successfully.',
-                'data'=>[
-                    'id'=>$product->id,
-                    'name'=>$this->formatProductName($product->name),
-                    'slug'=>$product->slug,
-                    'category'=>$product->category,
-                    'price'=>$product->price,
-                    'quantity'=>$product->quantity,
-                    'status'=>$product->status,
-                ]
-            ], 200);
-    }
+        $product = Product1::create($validated);
 
-    Private function formatProductName($name)
-    {
-        return ucwords(
-            strtolower(trim($name))
-        );
-    }
-
-
-
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
-    {
-        //
-    }
-
-    /**
-     * Display the specified resource.
-     */
-
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
-    {
-        //
+        return response()->json([
+            'message' => 'Product created successfully!',
+            'product' => $product,
+        ], 201);
     }
 }

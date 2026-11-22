@@ -14,10 +14,7 @@ class ProductResource extends JsonResource
             'id' => $this->id,
             'attributes' => [
                 'name' => $this->name,
-                'description' => $this->when(
-                    ! $request->routeIs('products.index', 'legacy.products.index'),
-                    $this->description
-                ),
+                'description' => $this->description,
                 'price' => $this->price,
                 'createdAt' => $this->created_at,
                 'updatedAt' => $this->updated_at,
@@ -27,16 +24,19 @@ class ProductResource extends JsonResource
                     'data' => $this->category_id === null ? null : [
                         'type' => 'category',
                         'id' => $this->category_id,
+                        'attributes' => [
+                            'name' => $this->category?->name,
+                        ],
                     ],
                     'links' => [
-                        'self' => $this->category_id === null ? null : route('categories.show', [
+                        'self' => $this->category_id === null ? null : route('legacy.categories.show', [
                             'category' => $this->category_id,
                         ]),
                     ],
                 ],
             ],
             'links' => [
-                'self' => route('products.show', [
+                'self' => route('legacy.products.show', [
                     'product' => $this->id,
                 ]),
             ],
